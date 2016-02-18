@@ -47,7 +47,7 @@ options:
         required: false
         choices: [ "define", "create", "start", "stop", "destroy",
                    "undefine", "get_xml", "list_nets", "facts",
-                   "info", "status"]
+                   "info", "status", "modify"]
         description:
             - in addition to state management, various non-idempotent commands are available.
               See examples.
