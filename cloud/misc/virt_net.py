@@ -227,17 +227,17 @@ class LibvirtConnection(object):
                     res = network.update (libvirt.VIR_NETWORK_UPDATE_COMMAND_ADD_LAST,
                         libvirt.VIR_NETWORK_SECTION_IP_DHCP_HOST,
                         -1, xml, libvirt.VIR_NETWORK_UPDATE_AFFECT_CURRENT)
-                    if res == 0 : 
+                    if res == 0: 
                         return True
                 else:
                     # change the host
-                    if host.get('name') == new_data.get('name') and host.get('ip') == new_data.get('ip') :
+                    if host.get('name') == new_data.get('name') and host.get('ip') == new_data.get('ip'):
                         return False
-                    else :
+                    else:
                         res = network.update (libvirt.VIR_NETWORK_UPDATE_COMMAND_MODIFY,
                             libvirt.VIR_NETWORK_SECTION_IP_DHCP_HOST,
                             -1, xml, libvirt.VIR_NETWORK_UPDATE_AFFECT_CURRENT)
-                        if res == 0 :
+                        if res == 0:
                             return True
             #  command, section, parentIndex, xml, flags=0
             self.module.fail_json(msg='updating this is not supported yet '+unicode(xml))
