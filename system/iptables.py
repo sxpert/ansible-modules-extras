@@ -69,6 +69,7 @@ options:
         'OUTPUT', 'PREROUTING', 'POSTROUTING', 'SECMARK', 'CONNSECMARK'"
     required: true
   order:
+    version_added: "2.1"
     description:
       - "Order in which to insert the rule, in this case -I is used instead 
         of -A when adding a rule"
