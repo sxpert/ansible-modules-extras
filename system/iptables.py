@@ -68,6 +68,12 @@ options:
         defined chain or any of the builtin chains: 'INPUT', 'FORWARD',
         'OUTPUT', 'PREROUTING', 'POSTROUTING', 'SECMARK', 'CONNSECMARK'"
     required: true
+  order:
+    version_added: "2.1"
+    description:
+      - "Order in which to insert the rule, in this case -I is used instead 
+        of -A when adding a rule"
+    required: false
   protocol:
     description:
       - The protocol of the rule or of the packet to check. The specified
@@ -88,16 +94,8 @@ options:
         a remote query such as DNS is a really bad idea. The mask can be
         either a network mask or a plain number, specifying the number of 1's
         at the left side of the network mask. Thus, a mask of 24 is equivalent
-        to 255.255.255.0. A "!" argument before the address specification
-        inverts the sense of the address.Source specification. Address can be
-        either a network name, a hostname, a network IP address (with /mask),
-        or a plain IP address.  Hostnames will be resolved once only, before
-        the rule is submitted to the kernel. Please note that specifying any
-        name to be resolved with a remote query such as DNS is a really bad
-        idea. The mask can be either a network mask or a plain number,
-        specifying the number of 1's at the left side of the network mask.
-        Thus, a mask of 24 is equivalent to 255.255.255.0. A "!" argument
-        before the address specification inverts the sense of the address.
+        to 255.255.255.0. A "!" before the address specification
+        inverts the sense of the address.
     required: false
   destination:
     description:
@@ -108,16 +106,8 @@ options:
         a remote query such as DNS is a really bad idea. The mask can be
         either a network mask or a plain number, specifying the number of 1's
         at the left side of the network mask. Thus, a mask of 24 is equivalent
-        to 255.255.255.0. A "!" argument before the address specification
-        inverts the sense of the address.Source specification. Address can be
-        either a network name, a hostname, a network IP address (with /mask),
-        or a plain IP address. Hostnames will be resolved once only, before
-        the rule is submitted to the kernel. Please note that specifying any
-        name to be resolved with a remote query such as DNS is a really bad
-        idea. The mask can be either a network mask or a plain number,
-        specifying the number of 1's at the left side of the network mask.
-        Thus, a mask of 24 is equivalent to 255.255.255.0. A "!" argument
-        before the address specification inverts the sense of the address.
+        to 255.255.255.0. A "!" before the address specification
+        inverts the sense of the address.
     required: false
   match:
     description:
@@ -230,6 +220,10 @@ EXAMPLES = '''
 # Allow related and established connections
 - iptables: chain=INPUT ctstate=ESTABLISHED,RELATED jump=ACCEPT
   become: yes
+
+# typical masquerade rule
+- iptables: table=nat chain=POSTROUTING source=10.10.0.0/24 destination=!10.10.0.0/24 jump=MASQUERADE
+  become: yes
 '''
 
 
@@ -255,8 +249,16 @@ def append_match(rule, param, match):
 def construct_rule(params):
     rule = []
     append_param(rule, params['protocol'], '-p', False)
-    append_param(rule, params['source'], '-s', False)
-    append_param(rule, params['destination'], '-d', False)
+    source = params['source']
+    if (source is not None) and (len(source)>0) and (source[0]=='!'):
+        rule.extent(['!'])
+        source = source[1:]
+    append_param(rule, source, '-s', False)
+    destination = params['destination']
+    if (destination is not None) and (len(destination)>0) and (destination[0]=='!'):
+        rule.extend(['!'])
+        destination = destination[1:]
+    append_param(rule, destination, '-d', False)
     append_param(rule, params['match'], '-m', True)
     append_param(rule, params['jump'], '-j', False)
     append_param(rule, params['goto'], '-g', False)
@@ -270,8 +272,9 @@ def construct_rule(params):
     append_match(rule, params['comment'], 'comment')
     append_param(rule, params['comment'], '--comment', False)
     append_match(rule, params['ctstate'], 'state')
-    append_csv(rule, params['ctstate'], '--state')
-    append_match(rule, params['limit'] or params['limit_burst'], 'limit')
+    if len(params['ctstate']) > 0:
+        append_csv(rule, params['ctstate'], '--state')
+    append_match(rule, params['limit'], 'limit')
     append_param(rule, params['limit'], '--limit', False)
     append_param(rule, params['limit_burst'], '--limit-burst', False)
     return rule
@@ -292,7 +295,13 @@ def check_present(iptables_path, module, params):
 
 
 def append_rule(iptables_path, module, params):
-    cmd = push_arguments(iptables_path, '-A', params)
+    if params['order'] is not None:
+        cmd = [iptables_path]
+        cmd.extend(['-t', params['table']])
+        cmd.extend(['-I', params['chain'], params['order']])
+        cmd.extend(construct_rule(params))
+    else :
+        cmd = push_arguments(iptables_path, '-A', params)
     module.run_command(cmd, check_rc=True)
 
 
@@ -309,6 +318,7 @@ def main():
             state=dict(required=False, default='present', choices=['present', 'absent']),
             ip_version=dict(required=False, default='ipv4', choices=['ipv4', 'ipv6']),
             chain=dict(required=True, default=None, type='str'),
+            order=dict(required=False, default=None, type='str'),
             protocol=dict(required=False, default=None, type='str'),
             source=dict(required=False, default=None, type='str'),
             destination=dict(required=False, default=None, type='str'),
