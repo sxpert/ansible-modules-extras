@@ -51,6 +51,7 @@ options:
         description:
             - in addition to state management, various non-idempotent commands are available.
               See examples.
+              Modify was added in version 2.1
     autostart:
         required: false
         choices: ["yes", "no"]
